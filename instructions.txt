@@ -1,0 +1,116 @@
+
+Using SecureStore to manage secrets for jet
+
+Neosmart's SecureStore stores secrets in a json file 
+which is intentionally human readable to allow secrets to be versioned alongside other code in your source code repository.
+
+SecureStore provides a command line tool, ssclient
+which can be used to generate secret files.
+
+Before deciding if you wish to use SecureStore secrets with jet
+it is recommended to install ssclient and create a secrets file
+using the walk through here:
+
+https://crates.io/crates/ssclient
+
+A small wrapper program which can supply SecureStore secrets to jetp
+by converting them to environment variables has been supplied 
+in the /contrib/secret_management/securestore folder.
+
+The wrapper program needs to be supplied the following arguments:
+
+--store <path to the secrets.json file>
+--key <path to the secrets.key file>
+-- 
+The command you wish to run (i.e. jetp and any arguments)
+must follow the -- 
+
+The wrapper simply decrypts all the secrets in the secrets.json file
+using the secrets.key and transforms them into environment variables.
+
+Note that the SecureStore examples use colon (:) in the secret names,
+but environment variable names containing : can cause problems, so any
+colon (:) is converted to an underscore (_) as part of the conversion.
+
+Note that jetp prefixes all environment variables with ENV_ so you 
+will need to prefix converted names in order to use secrets in templates.
+
+See the following table for an example of how the names differ:
+
+| original secret name | environment variable passed to jet | correct name to use in a jet template |
+| db:postgres_user | db_postgres_user | ENV_db_postgres_user |
+
+--
+
+A worked example
+
+#install rust
+see https://www.rust-lang.org/tools/install
+
+# install ssclient
+cargo binstall ssclient 
+
+# create a secrets.json file and export a secrets.key so secrets can be decrypted without a password
+ssclient create secrets.json --export-key secrets.key
+
+# add some secrets
+ssclient set db:username pgsql
+ssclient set db:password
+
+# compile the wrapper program, ss2env, from the jetporch git repository:
+cd contrib/secret_management/securestore
+make
+
+# you can now copy the 'ss2env' executable to your path
+
+cp target/release/ss2env somewhere/on/your/path
+
+# create a playbook to demonstrate secrets are passed to jet
+mkdir ~/playbooks
+
+$ vi ~/playbooks/template-test.yml
+(enter the following then press Esc :wq!)
+- name: demonstrate templating
+
+  groups:
+    - all
+
+  tasks:
+
+    - !template
+      src: /home/your_user/playbooks/secret_demo.txt
+      dest: /tmp/secret_demo.txt
+
+#  (note change /home/your_user to your user's home directory)
+
+# create a template 
+# vi ~/playbooks/secret_demo.txt
+(enter the following then press Esc :wq!)
+
+# this is here to demo you can
+# pass secrets through from securestore
+# to jet templates
+
+username: {{ENV_db_username}}
+password: {{ENV_db_password}}
+
+# run the playbook via the wrapper
+ss2env --store secrets.json --key secrets.key -- /path/to/jetp local -p~/playbooks/template-test.yml
+
+# check the templated values have passed through jetp to the templated file.
+
+cat /tmp/secret_demo.txt
+# this is here to demo you can
+# pass secrets through from securestore
+# to jet templates
+
+username: postgres
+password: postgres1234
+
+# clean up
+
+rm /tmp/secret_demo.txt
+
+A final piece of advice: Never check the secrets.key into git.
+
+
