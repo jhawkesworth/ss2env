@@ -44,6 +44,8 @@ use std::process;
 use std::process::{Command, Stdio};
 use std::ffi::OsStr;
 
+use dotenvy;
+
 // Config struct holds setting taken from command line args
 #[derive(Debug)]
 struct Config {
@@ -53,13 +55,35 @@ struct Config {
 }
 
 impl Config {
-    // parse cli args into Config
+    // parse cli args and environment variables into Config
     fn build(mut args: impl Iterator<Item = String>) -> Result<Config, &'static str> {
-
-        args.next();
 
         let mut secret_key: Option<String> = Option::from(String::from("~/.securestore/secrets.key"));
         let mut secret_store: Option<String> = Option::None; // default calculated later after args are parsed.
+
+        let dotenv =dotenvy::from_filename("~/.ss2env");
+        match dotenv {
+             Ok(..) => {
+                 let store_env = dotenvy::var("SS2ENV_STORE");
+                 match store_env {
+                     Ok(store) => {
+                         secret_store = Option::from(store);
+                     },
+                     Err(..) => {}
+                 }
+                 let key_env = dotenvy::var("SS2ENV_KEY");
+                 match key_env {
+                     Ok(key) => {
+                         secret_key = Option::from(key);
+                     },
+                     Err(..) => {}
+                 }
+             },
+             Err(..) => {}
+        }
+
+        args.next();
+
         let mut target_command_args: Vec<String> = Vec::new(); // will hold program and args to run with environment containing secrets
 
         match args.next() {
