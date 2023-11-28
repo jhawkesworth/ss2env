@@ -39,7 +39,7 @@
 use securestore::{KeySource, SecretsManager};
 use std::collections::HashMap;
 use std::env;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::process;
 use std::process::{Command, Stdio};
 use std::ffi::OsStr;
@@ -58,10 +58,11 @@ impl Config {
     // parse cli args and environment variables into Config
     fn build(mut args: impl Iterator<Item = String>) -> Result<Config, &'static str> {
 
-        let mut secret_key: Option<String> = Option::from(String::from("~/.securestore/secrets.key"));
-        let mut secret_store: Option<String> = Option::None; // default calculated later after args are parsed.
+        let mut secret_key: Option<String> = Option::None;
+        let mut secret_store: Option<String> = Option::None;
 
-        let dotenv =dotenvy::from_filename("~/.ss2env");
+        // try to get store and key values from environment first
+        let dotenv = dotenvy::from_filename("~/.ss2env");
         match dotenv {
              Ok(..) => {
                  let store_env = dotenvy::var("SS2ENV_STORE");
@@ -105,7 +106,7 @@ impl Config {
             _ => {},
         };
 
-        // yep do the same thing again to capture the other arg
+        // yep do the same thing again to capture the other arg if present
         match args.next() {
             Some(arg) => {
                 if (arg == "--store") || (arg == "-s") {
@@ -130,30 +131,7 @@ impl Config {
             target_command_args.push(arg);
         }
 
-        if secret_store.is_none() {
-            // look for the arg after -i in the target command line
-            //
-            let tci = target_command_args.iter();
-            let mut getpath = false;
-            for t_arg in tci {
-                if getpath == true {
-                    let inventory_path = Path::new(t_arg);
-                    // get parent dir of the -i path
-                    let inv_path_base = inventory_path.parent().unwrap_or(Path::new("."));
-                    let mut conventional_secret_store = PathBuf::from(inv_path_base);
-                    // add secrets.json to the path (or . if not found)
-                    conventional_secret_store.push(Path::new("secrets.json"));
-                    secret_store = Option::Some(String::from(conventional_secret_store.to_str().unwrap()));
-
-                    break;
-                }
-                if t_arg == "-i" {
-                    getpath = true; // retrieve the path next time through the loop
-                }
-
-            }
-        }
-
+        // sanity checks...
         // target command must contain at least one arg (path to jetp)
 
         let args_len = target_command_args.len();
@@ -164,19 +142,19 @@ impl Config {
         // try to read the key
         let key_read = std::fs::read(&secret_key.as_ref().unwrap());
         if key_read.is_err() {
-            println!("Could not read secret key at [{}].  Either supply -k/--key arg or put your secrets.key in ~/.securestore/secrets.key", &secret_key.clone().unwrap());
+            println!("Could not read secret key at [{}].  Either supply -k/--key arg or put your secrets.key in the location given in SS2ENV_KEY environment variable", &secret_key.clone().unwrap());
             return Err("could not read key file. ")
         }
 
         // make sure we have a path for the secret store
         if secret_store.is_none() {
-            return Err("no secret file specified or found adjacent to jetp -i inventory directory. ")
+            return Err("no secret file specified.  Set SS2ENV_STORE environment variable correctly.")
         }
 
         // check we can read the secret store file
         let secret_read = std::fs::read(&secret_store.clone().unwrap());
         if secret_read.is_err() {
-            println!("Could not read secret file at [{}].  Either supply -s/--store arg or put secret.json in the same dir as your -i inventory", &secret_store.clone().unwrap());
+            println!("Could not read secret file at [{}].  Either supply -s/--store arg or put secret.json in the location given in SS2ENV_STORE environment variable.", &secret_store.clone().unwrap());
             return Err("could not read secret file. ");
         }
 
