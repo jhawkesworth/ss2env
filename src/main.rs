@@ -44,7 +44,7 @@ use std::process;
 use std::process::{Command, Stdio};
 use std::ffi::OsStr;
 
-use dotenvy;
+use dotenvy::{from_filename, var};
 
 // Config struct holds setting taken from command line args
 #[derive(Debug)]
@@ -62,17 +62,17 @@ impl Config {
         let mut secret_store: Option<String> = Option::None;
 
         // try to get store and key values from environment first
-        let dotenv = dotenvy::from_filename("~/.ss2env");
+        let dotenv = from_filename("~/.ss2env");
         match dotenv {
              Ok(..) => {
-                 let store_env = dotenvy::var("SS2ENV_STORE");
+                 let store_env = var("SS2ENV_STORE");
                  match store_env {
                      Ok(store) => {
                          secret_store = Option::from(store);
                      },
                      Err(..) => {}
                  }
-                 let key_env = dotenvy::var("SS2ENV_KEY");
+                 let key_env = var("SS2ENV_KEY");
                  match key_env {
                      Ok(key) => {
                          secret_key = Option::from(key);
@@ -140,7 +140,7 @@ impl Config {
         }
 
         // try to read the key
-        let key_read = std::fs::read(&secret_key.as_ref().unwrap());
+        let key_read = std::fs::read(secret_key.as_ref().unwrap());
         if key_read.is_err() {
             println!("Could not read secret key at [{}].  Either supply -k/--key arg or put your secrets.key in the location given in SS2ENV_KEY environment variable", &secret_key.clone().unwrap());
             return Err("could not read key file. ")
@@ -152,7 +152,7 @@ impl Config {
         }
 
         // check we can read the secret store file
-        let secret_read = std::fs::read(&secret_store.clone().unwrap());
+        let secret_read = std::fs::read(secret_store.clone().unwrap());
         if secret_read.is_err() {
             println!("Could not read secret file at [{}].  Either supply -s/--store arg or put secret.json in the location given in SS2ENV_STORE environment variable.", &secret_store.clone().unwrap());
             return Err("could not read secret file. ");
