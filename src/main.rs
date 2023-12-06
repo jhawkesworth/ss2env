@@ -63,67 +63,48 @@ impl Config {
 
         // try to get store and key values from environment first
         let dotenv = from_filename("~/.ss2env");
-        match dotenv {
-             Ok(..) => {
+        if dotenv.is_ok() {
                  let store_env = var("SS2ENV_STORE");
-                 match store_env {
-                     Ok(store) => {
+                 if let Ok(store) = store_env {
                          secret_store = Option::from(store);
-                     },
-                     Err(..) => {}
                  }
                  let key_env = var("SS2ENV_KEY");
-                 match key_env {
-                     Ok(key) => {
+                 if let Ok(key) = key_env {
                          secret_key = Option::from(key);
-                     },
-                     Err(..) => {}
                  }
-             },
-             Err(..) => {}
         }
 
         args.next();
 
         let mut target_command_args: Vec<String> = Vec::new(); // will hold program and args to run with environment containing secrets
 
-        match args.next() {
-            Some(arg) => {
+        if let Some(arg) = args.next() {
                 if (arg == "--store") || (arg == "-s") {
-                    match args.next() {
-                        Some(store_arg) => secret_store = Option::from(store_arg),
-                        _ => {},
+                    if let Some(store_arg) = args.next() {
+                        secret_store = Option::from(store_arg)
                     }
                 } else if (arg == "--key") || (arg == "-k" ) {
-                    match args.next() {
-                        Some(key_arg) => secret_key = Option::from(key_arg),
-                        _ => {},
+                    if let Some(key_arg) = args.next() {
+                        secret_key = Option::from(key_arg)
                     }
                 } else {
                     target_command_args.push(arg);
                 }
-            },
-            _ => {},
         };
 
         // yep do the same thing again to capture the other arg if present
-        match args.next() {
-            Some(arg) => {
-                if (arg == "--store") || (arg == "-s") {
-                    match args.next() {
-                        Some(store_arg) => secret_store = Option::from(store_arg),
-                        _ => {},
-                    }
-                } else if (arg == "--key") || (arg == "-k" ) {
-                    match args.next() {
-                        Some(key_arg) => secret_key = Option::from(key_arg),
-                        _ => {},
-                    }
-                } else {
-                    target_command_args.push(arg);
+        if let Some(arg) = args.next() {
+            if (arg == "--store") || (arg == "-s") {
+                if let Some(store_arg) = args.next() {
+                    secret_store = Option::from(store_arg)
                 }
-            },
-            _ => {},
+            } else if (arg == "--key") || (arg == "-k" ) {
+                if let Some(key_arg) = args.next() {
+                    secret_key = Option::from(key_arg)
+                }
+            } else {
+                target_command_args.push(arg);
+            }
         };
 
         // slurp the rest of the args from the command line, should be jetp and all its args
