@@ -11,3 +11,9 @@ publish = false
 [dependencies]
 dotenvy = "0.15.7"
 securestore = "0.100.0"
+
+[profile.release]
+# v This is now used by default, if not provided
+# as per https://kobzol.github.io/rust/cargo/2024/01/23/making-rust-binaries-smaller-by-default.html
+# can probably remove after next rust version (currently I have 1.75)
+strip = "debuginfo"
